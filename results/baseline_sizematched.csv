@@ -1,0 +1,4 @@
+comparison,mean_wasserstein_h1,std_wasserstein_h1,n_subsamples
+lgbtq_vs_heteronormative,3.527019549258571,0.0,1
+lgbtq_vs_occupation,4.720016400952945,0.4146896362307661,20
+lgbtq_vs_random_adjectives,4.45675114946894,0.3810744391783748,20

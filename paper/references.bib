@@ -1,0 +1,175 @@
+% ============================================================
+% references.bib — tda-llm-bias
+% ============================================================
+
+% ---- Fine-tuning-as-debiasing assumption (the framing we push back on) ----
+
+@inproceedings{gira-etal-2022-debiasing,
+  title     = {Debiasing Pre-Trained Language Models via Efficient Fine-Tuning},
+  author    = {Gira, Michael and Zhang, Ruisu and Lee, Kangwook},
+  editor    = {Chakravarthi, Bharathi Raja and Bharathi, B. and McCrae, John P. and Zarrouk, Manel and Bali, Kalika and Buitelaar, Paul},
+  booktitle = {Proceedings of the Second Workshop on Language Technology for Equality, Diversity and Inclusion},
+  month     = may,
+  year      = {2022},
+  address   = {Dublin, Ireland},
+  publisher = {Association for Computational Linguistics},
+  url       = {https://aclanthology.org/2022.ltedi-1.8/},
+  doi       = {10.18653/v1/2022.ltedi-1.8},
+  pages     = {59--69}
+}
+
+@inproceedings{meade-etal-2022-empirical,
+  title     = {An Empirical Survey of the Effectiveness of Debiasing Techniques for Pre-trained Language Models},
+  author    = {Meade, Nicholas and Poole-Dayan, Elinor and Reddy, Siva},
+  booktitle = {Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)},
+  month     = may,
+  year      = {2022},
+  address   = {Dublin, Ireland},
+  publisher = {Association for Computational Linguistics},
+  url       = {https://aclanthology.org/2022.acl-long.132/},
+  doi       = {10.18653/v1/2022.acl-long.132},
+  pages     = {1878--1898}
+}
+
+% ---- Supporting our thesis: mitigation does not transfer reliably through fine-tuning ----
+
+@inproceedings{steed-etal-2022-upstream,
+  title     = {Upstream Mitigation Is Not All You Need: Testing the Bias Transfer Hypothesis in Pre-Trained Language Models},
+  author    = {Steed, Ryan and Panda, Swetasudha and Kobren, Ari and Wick, Michael},
+  booktitle = {Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)},
+  month     = may,
+  year      = {2022},
+  address   = {Dublin, Ireland},
+  publisher = {Association for Computational Linguistics},
+  url       = {https://aclanthology.org/2022.acl-long.247/},
+  doi       = {10.18653/v1/2022.acl-long.247},
+  pages     = {3524--3542}
+}
+
+% ---- Foundational: social bias in embedding geometry ----
+
+@article{caliskan2017semantics,
+  title   = {Semantics derived automatically from language corpora contain human-like biases},
+  author  = {Caliskan, Aylin and Bryson, Joanna J. and Narayanan, Arvind},
+  journal = {Science},
+  volume  = {356},
+  number  = {6334},
+  pages   = {183--186},
+  year    = {2017},
+  doi     = {10.1126/science.aal4230}
+}
+
+@article{garg2018word,
+  title   = {Word embeddings quantify 100 years of gender and ethnic stereotypes},
+  author  = {Garg, Nikhil and Schiebinger, Londa and Jurafsky, Dan and Zou, James},
+  journal = {Proceedings of the National Academy of Sciences},
+  volume  = {115},
+  number  = {16},
+  pages   = {E3635--E3644},
+  year    = {2018},
+  doi     = {10.1073/pnas.1720347115}
+}
+
+% ---- Foundational: topological data analysis ----
+
+@book{edelsbrunner2010computational,
+  title     = {Computational Topology: An Introduction},
+  author    = {Edelsbrunner, Herbert and Harer, John},
+  year      = {2010},
+  publisher = {American Mathematical Society},
+  address   = {Providence, RI}
+}
+
+@article{carlsson2009topology,
+  title   = {Topology and data},
+  author  = {Carlsson, Gunnar},
+  journal = {Bulletin of the American Mathematical Society},
+  volume  = {46},
+  number  = {2},
+  pages   = {255--308},
+  year    = {2009},
+  doi     = {10.1090/S0273-0979-09-01249-X}
+}
+
+% ---- Foundational: social bias in embedding geometry (cont.) ----
+
+@inproceedings{bolukbasi2016man,
+  title     = {Man is to computer programmer as woman is to homemaker? Debiasing word embeddings},
+  author    = {Bolukbasi, Tolga and Chang, Kai-Wei and Zou, James Y and Saligrama, Venkatesh and Kalai, Adam T},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {29},
+  pages     = {4349--4357},
+  year      = {2016}
+}
+
+@inproceedings{may-etal-2019-measuring,
+  title     = {On Measuring Social Biases in Sentence Encoders},
+  author    = {May, Chandler and Wang, Alex and Bordia, Shikha and Bowman, Samuel R. and Rudinger, Rachel},
+  booktitle = {Proceedings of the 2019 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies, Volume 1 (Long and Short Papers)},
+  pages     = {622--628},
+  year      = {2019},
+  address   = {Minneapolis, Minnesota},
+  publisher = {Association for Computational Linguistics}
+}
+
+% ---- Supporting our thesis: mitigation does not transfer reliably through fine-tuning (cont.) ----
+
+@inproceedings{goldfarb-tarrant-etal-2021-intrinsic,
+  title     = {Intrinsic Bias Metrics Do Not Correlate with Application Bias},
+  author    = {Goldfarb-Tarrant, Seraphina and Marchant, Rebecca and Mu{\~n}oz S{\'a}nchez, Ricardo and Pandya, Mugdha and Lopez, Adam},
+  booktitle = {Proceedings of the 59th Annual Meeting of the Association for Computational Linguistics and the 11th International Joint Conference on Natural Language Processing (Volume 1: Long Papers)},
+  pages     = {1926--1940},
+  year      = {2021},
+  publisher = {Association for Computational Linguistics}
+}
+
+% ---- Topological data analysis of neural networks ----
+
+@article{naitzat2020topology,
+  title   = {Topology of Deep Neural Networks},
+  author  = {Naitzat, Gregory and Zhitnikov, Andrey and Lim, Lek-Heng},
+  journal = {Journal of Machine Learning Research},
+  volume  = {21},
+  number  = {184},
+  pages   = {1--40},
+  year    = {2020}
+}
+
+@inproceedings{gabrielsson2019exposition,
+  title        = {Exposition and Interpretation of the Topology of Neural Networks},
+  author       = {Gabrielsson, Rickard Br{\"u}el and Carlsson, Gunnar},
+  booktitle    = {2019 18th IEEE International Conference on Machine Learning and Applications (ICMLA)},
+  pages        = {1069--1076},
+  year         = {2019},
+  organization = {IEEE}
+}
+
+@inproceedings{birdal2021intrinsic,
+  title     = {Intrinsic Dimension, Persistent Homology and Generalization in Neural Networks},
+  author    = {Birdal, Tolga and Lou, Aaron and Guibas, Leonidas J and Simsekli, Umut},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {34},
+  year      = {2021}
+}
+
+% ---- TDA work closest to our setting (motivating the gap we target) ----
+
+@article{rathore2023topobert,
+  title     = {TopoBERT: Exploring the topology of fine-tuned word representations},
+  author    = {Rathore, Archit and Zhou, Yichu and Srikumar, Vivek and Wang, Bei},
+  journal   = {Information Visualization},
+  volume    = {22},
+  number    = {3},
+  pages     = {186--208},
+  year      = {2023},
+  publisher = {SAGE Publications}
+}
+
+@misc{varadarajan2025augmenting,
+  title         = {Augmenting Bias Detection in LLMs Using Topological Data Analysis},
+  author        = {Varadarajan, Vignesh and Songdechakraiwut, Tananun},
+  year          = {2025},
+  eprint        = {2508.07516},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CL}
+}

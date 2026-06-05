@@ -1,0 +1,5 @@
+model,hub_id,base_family,variant,layer,wasserstein_h1
+bert-base-uncased,bert-base-uncased,bert,base,5,18.997247412281162
+textattack-bert-base-MNLI,textattack/bert-base-uncased-MNLI,bert,fine_tuned,5,10.896035333042466
+roberta-base,roberta-base,roberta,base,12,0.6861109286243738
+textattack-roberta-base-CoLA,textattack/roberta-base-CoLA,roberta,fine_tuned,12,1.8347093685543565

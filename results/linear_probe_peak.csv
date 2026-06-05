@@ -1,0 +1,5 @@
+model,hub_id,base_family,variant,layer,n_samples,n_features,n_folds,mean_accuracy,std_accuracy,mean_balanced_accuracy,std_balanced_accuracy,chance_majority
+bert-base-uncased,bert-base-uncased,bert,base,5,120,768,5,1.0,0.0,1.0,0.0,0.6666666666666666
+textattack-bert-base-MNLI,textattack/bert-base-uncased-MNLI,bert,fine_tuned,5,120,768,5,1.0,0.0,1.0,0.0,0.6666666666666666
+roberta-base,roberta-base,roberta,base,12,120,768,5,0.6916666666666667,0.02282177322938196,0.5375,0.03423265984407288,0.6666666666666666
+textattack-roberta-base-CoLA,textattack/roberta-base-CoLA,roberta,fine_tuned,12,120,768,5,0.8833333333333334,0.05432668671002207,0.825,0.08149003006503312,0.6666666666666666

@@ -1,0 +1,337 @@
+\documentclass[11pt]{article}
+
+% --- packages (load order: natbib before hyperref) ----------------------
+\usepackage[margin=1in]{geometry}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath, amssymb}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{natbib}
+\usepackage{hyperref}
+
+\captionsetup{font=small, labelfont=bf}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!50!black,
+  citecolor=blue!50!black,
+  urlcolor=blue!50!black,
+}
+
+\graphicspath{{figures/}}
+
+% --- title block --------------------------------------------------------
+\title{Downstream Fine-Tuning Reorganizes Identity-Coded Geometry \\
+       in Transformer Embeddings: \\
+       A Cross-Architecture Topological Probe}
+\author{Abdullah Goraya}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+% ======================================================================
+\begin{abstract}
+Supervised fine-tuning is widely assumed to attenuate the identity-coded representational structure that pretrained language models inherit from their training data. We show this assumption fails --- and fails in opposite directions across architectures, so that ``fine-tuning debiases'' cannot be stated as a model-agnostic claim. To detect structure that surface audits miss, we introduce a topological probe: treating each group of sentence embeddings as a point cloud, we use persistent homology to characterize its multi-scale geometry, comparing otherwise-identical sentences in which only an identity term varies and quantifying group differences via the Wasserstein distance between persistence diagrams. The signal is real and well-localized: LGBTQ+-coded embeddings are topologically distinct from an identity-neutral baseline (H1 Wasserstein $p = 0.001$, 1000-permutation test), the effect is not an artifact of subword tokenization, and the orientation cluster crystallizes at a specific depth in each encoder family (layer 5 in BERT, layer 12 in RoBERTa). Against this common foundation, downstream fine-tuning reshapes the geometry in architecture- and task-dependent directions. MNLI fine-tuning disperses BERT's orientation cluster --- a 43\% drop in H1 Wasserstein distance across $\sim 5\times$ more dimensions --- while a linear probe shows the information is fully preserved (100\% balanced accuracy, unchanged). CoLA fine-tuning instead amplifies the cluster in RoBERTa (+167\% Wasserstein) and, despite carrying no identity-related supervision, introduces linearly recoverable orientation information (probe accuracy $0.54 \rightarrow 0.83$). Fine-tuning is therefore not a reliable debiasing operation: it can hide identity-coded structure from surface audits or create it as a side effect. We demonstrate differential geometric encoding across model families and make no claim of behavioral harm absent further validation.
+\end{abstract}
+
+% ======================================================================
+\section{Introduction}\label{sec:intro}
+
+Large language models inherit social structure from their training data, and a substantial literature documents how that structure surfaces as measurable bias in learned representations \citep{caliskan2017semantics, garg2018word}. As the field has moved to a deploy-by-fine-tuning paradigm, fine-tuning has itself been proposed as a debiasing mechanism: \citet{gira-etal-2022-debiasing} reduce gender bias by updating under 1\% of a model's parameters. Yet the premise that mitigation survives deployment is shakier than it is often treated. \citet{meade-etal-2022-empirical} find existing debiasing techniques inconsistent and prone to degrading language-modeling ability; \citet{goldfarb-tarrant-etal-2021-intrinsic} show that intrinsic bias metrics do not reliably predict downstream application bias; and \citet{steed-etal-2022-upstream} find that reducing intrinsic bias before fine-tuning does little to curb discriminatory behavior afterward. The emerging consensus is that bias mitigation does not transfer reliably through fine-tuning. What this literature does not provide is a representational-level account of what fine-tuning actually does to identity-coded structure --- and answering that requires a measurement tool sensitive to the right kind of structure.
+
+The dominant probes for representational bias --- top-$k$ output inspection, pairwise cosine similarity, and WEAT/SEAT-style association tests \citep{bolukbasi2016man, caliskan2017semantics, may-etal-2019-measuring} --- are sensitive to directional or pairwise structure: a vector to project out, or a cosine score between two sets. They are blind by construction to how a group's embeddings are globally connected and clustered across scales. Topological data analysis (TDA) is built precisely for that global, multi-scale structure, and two recent results make it the natural instrument for our question. \citet{rathore2023topobert}, with TopoBERT, use the Mapper algorithm to show that fine-tuning does reorganize the topology of a model's embedding space --- and that higher layers change more than lower ones --- but they study general class structure, with no identity focus and no significance testing. \citet{varadarajan2025augmenting} use persistent homology, Wasserstein distance, and permutation testing to show that TDA can detect identity-group bias in an LLM --- but at the level of individual attention heads, for the purpose of localization, and without examining fine-tuning at all.
+
+These two results bracket an open question. If fine-tuning reorganizes embedding topology in general (TopoBERT), and if identity-coded bias has a detectable topological signature \citep{varadarajan2025augmenting}, then does fine-tuning's reorganization act selectively on identity-coded subgroup structure --- and if so, in a consistent direction? We pose and answer exactly this intersection question: we apply persistent homology not to attention heads but to identity-paired subgroup embedding clouds (otherwise-identical sentences differing only in an identity term, e.g., ``a gay person'' vs.\ ``a person''), and we ask how downstream fine-tuning reshapes their topology. Our central finding is that it does so, but not uniformly: the same class of intervention moves identity-coded geometry in opposite directions across architectures, so ``fine-tuning debiases'' cannot be stated as a model-agnostic claim.
+
+Concretely, we compare each subgroup's persistence diagram against an identity-neutral baseline using the Wasserstein distance, with significance assessed by label-permutation tests. We first establish that the signal is real: LGBTQ+-coded embeddings are topologically distinct from neutral ones (H1 Wasserstein $p = 0.001$, 1000 permutations), the effect is not an artifact of subword tokenization, and it is localized to a specific depth in each encoder family (layer 5 in BERT, layer 12 in RoBERTa). The structure is genuinely topological --- invisible to UMAP projection and cosine inspection, which organize the space by sentence template rather than by identity.
+
+Against this foundation, fine-tuning reshapes the geometry in architecture- and task-dependent directions. MNLI fine-tuning disperses BERT's orientation cluster --- a 43\% drop in H1 Wasserstein distance, spread across roughly $5\times$ more principal-component dimensions --- while a linear probe shows the underlying information is fully preserved (100\% balanced accuracy, unchanged). CoLA fine-tuning does the opposite to RoBERTa, amplifying the cluster (+167\% Wasserstein) and, despite supervising only grammatical acceptability with no identity-related labels, introducing linearly recoverable orientation information where the base model carried almost none (probe accuracy $0.54 \rightarrow 0.83$). The same intervention class thus moves the same quantity in opposite directions depending on the (architecture, task) pair.
+
+We make the following contributions:
+\begin{enumerate}
+  \item \textbf{A topological probe for identity-coded representational structure.} We apply persistent homology and Wasserstein-distance permutation testing to identity-paired subgroup embedding clouds, capturing global, multi-scale structure that directional and pairwise probes miss by construction.
+  \item \textbf{Evidence that the structure is real, not an artifact.} The LGBTQ+ vs.\ neutral topological separation is significant ($p = 0.001$), robust to subword-tokenization confounds, and layer-localized in two encoder families.
+  \item \textbf{A cross-architecture characterization of fine-tuning's effect.} We show fine-tuning reorganizes identity-coded geometry in opposite directions across families --- dispersion-without-erasure in BERT+MNLI (information preserved at 100\% probe accuracy) versus information gain in RoBERTa+CoLA (probe accuracy $0.54 \rightarrow 0.83$) --- and separate geometric reorganization from genuine information change using a PCA-bottleneck and linear-probe analysis.
+  \item \textbf{A scoping caveat for bias auditing.} Because the effect is differential, any claim that fine-tuning debiases must be scoped to a specific (architecture, task) pair. We demonstrate differential geometric encoding across model families and make no claim of behavioral harm absent further validation.
+\end{enumerate}
+
+% ======================================================================
+\section{Related Work}\label{sec:related}
+
+\textbf{Bias in embedding geometry.} A long line of work characterizes social bias as geometric structure in learned representations. \citet{bolukbasi2016man} showed that gender bias in static word embeddings is captured by a single direction, with gender-neutral words linearly separable from gender-definitional ones, and proposed to debias by projecting that direction out. \citet{caliskan2017semantics} formalized bias as differential association via the Word Embedding Association Test (WEAT), and \citet{garg2018word} used embedding distances to track gender and ethnic stereotypes across a century of text. \citet{may-etal-2019-measuring} extended WEAT to the sentence level (SEAT) for contextual encoders such as ELMo and BERT, while also noting that the test's assumptions do not always hold. What unites these methods is that they probe for directional or pairwise structure --- a vector to project out, or a cosine-association score between two sets. Such probes are, by construction, blind to how a group's embeddings are globally connected and clustered across scales. We instead use a multi-scale topological summary that captures exactly this global arrangement.
+
+\textbf{Debiasing and whether it survives fine-tuning.} A second body of work asks whether identity structure can be removed, and whether removal persists through deployment. \citet{gira-etal-2022-debiasing} treat fine-tuning itself as the debiasing mechanism, reducing gender bias by updating under 1\% of a model's parameters. But the reliability of mitigation is increasingly in question. \citet{meade-etal-2022-empirical} survey five techniques and find them inconsistent --- frequently failing to generalize beyond gender and degrading language-modeling ability. \citet{goldfarb-tarrant-etal-2021-intrinsic} report that intrinsic bias metrics do not reliably correlate with downstream application bias across tasks and languages, undercutting the use of embedding-space measures as proxies for deployed behavior. \citet{steed-etal-2022-upstream} test the bias-transfer hypothesis directly and find that reducing intrinsic bias before fine-tuning does little to curb discriminatory behavior afterward, with downstream disparities better explained by fine-tuning-data bias. These results establish that mitigation is inconsistent and that intrinsic and extrinsic measures decouple; what they do not provide is a representational-level account of what fine-tuning does to identity-coded geometry. We supply one, and show the effect is not merely inconsistent but directionally opposite across architectures --- dispersion under one (architecture, task) pair, amplification under another.
+
+\textbf{Topological data analysis of neural networks.} TDA has mostly characterized whole-network or whole-dataset structure. \citet{naitzat2020topology} track how the persistent homology of an entire dataset simplifies as it passes through the layers of a trained classifier, arguing that networks reduce topological complexity with depth. \citet{gabrielsson2019exposition} apply persistent homology to the space of learned convolutional weights, recovering recurrent global structures across architectures and training. \citet{birdal2021intrinsic} derive a persistent-homology intrinsic dimension of the optimization trajectory and link it to generalization. Two recent efforts sit closer to our setting and motivate it directly (Section~\ref{sec:intro}): TopoBERT \citep{rathore2023topobert} uses Mapper to visualize how fine-tuning reshapes embedding topology, but over general class structure, without identity focus or significance testing; and \citet{varadarajan2025augmenting} use persistent homology with Wasserstein permutation tests to localize identity bias to individual attention heads, but do not examine fine-tuning. We target the gap between them: persistent homology on identity-paired subgroup embedding clouds, tracking how fine-tuning reorganizes that geometry.
+
+\textbf{Positioning.} Our work sits at the intersection of these three threads. From the first, we inherit the premise that social bias is encoded geometrically --- but we replace directional and pairwise probes with a multi-scale topological one that sees structure they cannot. From the second, we inherit the open question of what fine-tuning does to encoded bias --- and answer it at the representational level, showing architecture- and task-dependent reorganization rather than uniform attenuation. From the third, we adopt persistent homology as our instrument --- but retarget it from global network properties to identity-defined subgroups. While persistent homology has recently been applied to identity-group bias at the level of attention heads \citep{varadarajan2025augmenting}, and Mapper-based TDA has been used to study how fine-tuning reshapes embedding topology in general \citep{rathore2023topobert}, we are not aware of prior work using persistent homology as a targeted probe for how downstream fine-tuning reorganizes identity-coded subgroup structure in embedding space --- the intersection these two threads leave open.
+
+% ======================================================================
+\section{Methods}\label{sec:methods}
+
+\subsection{Stimuli}\label{sec:stimuli}
+
+We construct a controlled stimulus set of minimal pairs (\texttt{src/data\_gen.py}). Twenty sentence templates (T01--T20) span three context domains --- job application (7), social situations (7), and medical (6) --- each containing a single \texttt{\{term\}} slot, e.g.\ \textit{``The physician conducted a routine health examination for \{term\}.''} The slot is filled with identity terms drawn from four groups: \texttt{lgbtq\_explicit} (four terms: gay, lesbian, bisexual, transgender), \texttt{heteronormative} (two: straight, heterosexual), \texttt{neutral} (two: the person, they), and \texttt{religious\_conservative} (two: devout Christian, traditional). Crossing 20 templates with all 10 terms yields 200 sentences (80 \texttt{lgbtq\_explicit}, 40 each for the other three groups), written to \texttt{data/stimuli.csv} with columns \texttt{sentence}, \texttt{group}, \texttt{template\_id}, \texttt{identity\_term}. Because templates are shared across groups, any group-level difference in the resulting embeddings is attributable to the identity term alone.
+
+A tokenization control (\texttt{src/token\_control.py}) addresses the most common confound in embedding-geometry studies --- that rarer identity terms might fragment into more subword tokens and perturb the embedding for that reason alone. Tokenizing each identity term with the model's own tokenizer, we find that all four \texttt{lgbtq\_explicit} terms and both \texttt{heteronormative} terms map to exactly one subword token (\texttt{results/token\_control.csv}). The two groups are therefore already perfectly length-matched, so the topological separation between them cannot be a subword-fragmentation artifact; the matched-stratum Wasserstein distance is by construction identical to the unmatched one.
+
+\subsection{Embedding extraction}
+
+For the main analysis, sentences are encoded with \texttt{sentence-transformers/all-MiniLM-L6-v2} (\texttt{src/embed.py}, \texttt{src/embeddings.py}), producing 384-dimensional sentence embeddings that are L2-normalized at extraction (\texttt{normalize\_embeddings=True}). The resulting array (shape $200 \times 384$) and aligned metadata are persisted to \texttt{data/embeddings.npy} and \texttt{data/embeddings\_meta.csv}. For the layer-wise and fine-tuning analyses we additionally load \texttt{bert-base-uncased} and \texttt{roberta-base} through HuggingFace \texttt{AutoModel} with \texttt{output\_hidden\_states=True} (\texttt{src/layerwise.py}, \texttt{src/rlhf\_compare.py}). Each model exposes 13 hidden states (index 0 = input embeddings, 1--12 = transformer-layer outputs); we take the first-position pooled vector \texttt{hidden\_states[layer][:, 0, :]} --- \texttt{[CLS]} for BERT, \texttt{<s>} for RoBERTa --- as the sentence representation at each layer, batching inputs at size 32 in evaluation mode.
+
+\subsection{Persistent homology}
+
+Each group of embeddings is treated as a point cloud and analyzed with a Vietoris--Rips filtration \citep{edelsbrunner2010computational, carlsson2009topology} via the \texttt{ripser} library at \texttt{maxdim=1} (\texttt{src/tda.py}). Intuitively, as a neighborhood radius grows, points whose neighborhoods overlap become connected; the filtration records when connected components (H0) merge and when one-dimensional loops (H1) are born and later fill in. Each group thus yields a persistence diagram in dimensions 0 and 1 --- a coordinate-free, multi-scale summary of the cloud's shape. Diagrams for all four groups are computed and cached to \texttt{results/persistence\_diagrams.pkl} (\texttt{src/tda\_pipeline.py}).
+
+\subsection{Distance metric}
+
+To compare two groups we compute the Wasserstein distance between their persistence diagrams, separately for H0 and H1, using \texttt{persim} (\texttt{diagram\_distance} in \texttt{src/tda.py}). The Wasserstein distance is the optimal-transport cost of matching the birth--death points of one diagram to those of the other (with the diagonal absorbing unmatched points); a large distance means the two clouds are shaped differently across scales. \texttt{src/tda\_pipeline.py} assembles the full $4 \times 4$ pairwise distance matrices for H0 and H1 into \texttt{results/wasserstein\_distances.csv}.
+
+\subsection{Significance testing}
+
+We assess significance with a label-permutation test (\texttt{notebooks/analysis.ipynb}, Section~6), applied to the \texttt{lgbtq\_explicit} vs.\ \texttt{neutral} contrast. The 80 \texttt{lgbtq\_explicit} and 40 \texttt{neutral} embeddings are pooled (120 points); under the null hypothesis the identity label is irrelevant, so we shuffle the pooled labels, re-split into groups of size 80 and 40, and recompute the H1 Wasserstein distance, repeating $n = 1000$ times (seed 42) to build a null distribution. We report the one-sided $p$-value as $(1 + \#\{\text{null} \geq \text{observed}\}) / (n + 1)$, which floors at $\approx 0.001$ for 1000 permutations.
+
+\subsection{Stability}
+
+Because absolute H1 Wasserstein magnitudes depend on the number of points in each cloud, we characterize sampling variability with a bootstrap (\texttt{src/tda\_pipeline.py --bootstrap}). Over 1000 iterations (seed 42), we draw 80\% subsamples of each group without replacement (\texttt{lgbtq\_explicit} $80 \rightarrow 64$, \texttt{heteronormative} $40 \rightarrow 32$), recompute the H1 Wasserstein distance, and report its mean $\pm$ standard deviation and 95\% percentile confidence interval, with per-iteration values saved to \texttt{results/bootstrap\_stability.csv}. The resulting coefficient of variation is low ($\approx 5.7\%$). Because magnitudes are sample-size sensitive, all reported comparisons hold $N$ fixed (80 vs.\ 40), and absolute distances are interpreted only relative to same-$N$ comparators.
+
+\subsection{Baseline controls}
+
+To test whether the \texttt{lgbtq\_explicit} $\leftrightarrow$ \texttt{heteronormative} distance is special rather than generic lexical variation, \texttt{src/baselines.py} contrasts \texttt{lgbtq\_explicit} against two additional reference categories built from the same 20 templates: occupations (8 terms: teacher, surgeon, janitor, engineer, nurse, lawyer, plumber, accountant) and random adjectives (8 terms: tall, quiet, friendly, nervous, clever, tired, happy, calm). A naive full comparison uses all 8 control terms (160 sentences) against the 80 \texttt{lgbtq\_explicit} sentences, but this is confounded by cloud size. The trustworthy comparison is size-matched: each control category is subsampled to 2 terms $\times$ 20 templates (40 sentences, matching the \texttt{heteronormative} group), and the H1 Wasserstein distance is averaged over 20 random 2-term subsets (seed 42), so every contrast is a fair 80-vs.-40 comparison (\texttt{results/baseline\_sizematched.csv}).
+
+\subsection{Layer-wise analysis}
+
+\texttt{src/layerwise.py} localizes where in each encoder the topological separation emerges. For \texttt{bert-base-uncased} and \texttt{roberta-base}, we extract the pooled \texttt{[CLS]} / \texttt{<s>} vector at each of the 12 transformer layers for all 200 sentences and compute the per-layer H1 Wasserstein distance between \texttt{lgbtq\_explicit} and \texttt{heteronormative}. Each layer is evaluated twice --- on raw \texttt{[CLS]} vectors and on L2-normalized (unit-sphere) vectors --- because raw magnitudes partly reflect a layer's activation scale; a matching trajectory shape across both variants confirms a peak is a genuine geometric feature rather than a norm-growth artifact. We report each family's peak layer and the Pearson correlation between its raw and normalized trajectories as a scale-invariance check (\texttt{results/layerwise\_wasserstein.csv}, \texttt{results/layerwise\_wasserstein\_normalized.csv}). Because the two architectures differ in tokenizer, pretraining corpus, and objective, absolute magnitudes are not compared across families; only within-model trajectory shape and raw-vs.-normalized agreement are interpreted.
+
+\subsection{Fine-tuning comparison}
+
+\texttt{src/rlhf\_compare.py} asks whether fine-tuned descendants retain the mid-network orientation structure. Two families are probed: \texttt{bert-base-uncased} vs.\ \texttt{textattack/bert-base-uncased-MNLI}, and \texttt{roberta-base} vs.\ \texttt{textattack/roberta-base-CoLA}. The fair within-family comparison (\texttt{--per-family-peak}) evaluates each base / fine-tuned pair at that family's own peak layer, read programmatically from the layer-wise results (BERT layer 5, RoBERTa layer 12), and reports the base-vs.-fine-tuned change in H1 Wasserstein distance (\texttt{results/rlhf\_comparison\_peak.csv}). We note two scoping caveats carried in the code: the \texttt{textattack} models are supervised downstream fine-tunes (used as tractable proxies for ``the same base after a downstream training pass,'' not RLHF / preference optimization), and because BERT-MNLI and RoBERTa-CoLA were tuned on different tasks, only within-family deltas are compared --- never cross-family magnitudes.
+
+\subsection{Probes}\label{sec:probes_methods}
+
+To distinguish geometric reorganization from genuine change in recoverable information, \texttt{src/linear\_probe.py} fits two probes to the layer-\texttt{[CLS]} vectors of the 120 \texttt{lgbtq\_explicit} $+$ \texttt{heteronormative} sentences (768-dimensional), classifying orientation with stratified 5-fold cross-validation (seed 42). The majority-class chance baseline is 66.7\% (raw accuracy) / 50\% (balanced accuracy). The \textit{full-rank probe} is logistic regression (\texttt{max\_iter=2000}, \texttt{C=1.0}, lbfgs), reporting both raw and balanced accuracy. The \textit{PCA bottleneck probe} projects each \texttt{[CLS]} cloud onto its top $k$ principal components for $k \in \{2, 5, 10, 20, 50\}$ --- with PCA fit inside each CV fold via a pipeline so no test variance leaks into the projection --- fits logistic regression on the projected vectors, and reports the minimum $k$ at which mean accuracy reaches 0.90. This minimum $k$ serves as a quantitative measure of the effective dimensionality of the orientation axis: a larger $k$ means the orientation signal is spread across more directions (\texttt{results/linear\_probe\_peak.csv}, \texttt{results/pca\_probe\_peak.csv}). The same probes are run on the base / fine-tuned pairs at each family's peak layer, so the dimensionality measure is directly comparable before and after fine-tuning.
+
+% ======================================================================
+\section{Results}\label{sec:results}
+
+\subsection{The topological signal exists and is robust}\label{sec:signal_robust}
+
+The \texttt{lgbtq\_explicit} $\leftrightarrow$ \texttt{neutral} H1 Wasserstein distance of \textbf{4.769} (\texttt{all-MiniLM-L6-v2}, 80 vs.\ 40 sentences) is highly unlikely under a label-shuffling null (Figure~\ref{fig:permutation}). The 1000-iteration permutation null has mean 2.258 (sd 0.279, 95th percentile 2.724), placing the observed value roughly nine standard deviations above the null mean and yielding a one-sided $p$-value of \textbf{0.001} --- the floor for $n = 1000$ (\texttt{notebooks/analysis.ipynb}, Section~6).
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.65\textwidth]{fig1_permutation.pdf}
+\caption{Permutation test null distribution for the \texttt{lgbtq\_explicit} vs.\ \texttt{neutral} H1 Wasserstein distance. Observed value (red line, 4.769) exceeds all 1000 label-shuffled values, yielding $p = 0.001$.}
+\label{fig:permutation}
+\end{figure}
+
+Sampling variability around the same estimator is small. A 1000-iteration bootstrap (\texttt{src/tda\_pipeline.py --bootstrap}) subsampling 80\% of each group without replacement (\texttt{lgbtq\_explicit} $80 \rightarrow 64$; \texttt{heteronormative} $40 \rightarrow 32$) gives a tight distribution: mean $\mathbf{2.499 \pm 0.142}$, 95\% CI $\mathbf{[2.214, 2.781]}$, coefficient of variation $\mathbf{5.69\%}$ (\texttt{results/bootstrap\_stability.csv}). The bootstrap mean sits below the full-sample distance (3.527, \texttt{results/wasserstein\_distances.csv}) because H1 features are sample-size sensitive --- a known property of persistent homology that we control for downstream by holding $N$ fixed (80 vs.\ 40) in every reported comparison.
+
+The signal is not an artifact of subword fragmentation. All four \texttt{lgbtq\_explicit} terms (gay, lesbian, bisexual, transgender) and both \texttt{heteronormative} terms (straight, heterosexual) tokenize to exactly one WordPiece (\texttt{results/token\_control.csv}), so the two groups are already perfectly length-matched and the token-stratified Wasserstein distance is by construction identical to the unmatched value ($3.52702 = 3.52702$). And the structure is genuinely topological: it lives in H1 (loop) connectivity rather than gross cluster separation. UMAP organizes the 200 sentences by template --- $\sim$20 small clusters, one per scenario, with identity as a within-cluster perturbation --- so pairwise cosine and 2-D projection methods cannot see it by construction.
+
+\subsection{Layer-wise localization differs across architectures}\label{sec:layerwise_results}
+
+Per-layer \texttt{[CLS]} Wasserstein trajectories localize the \texttt{lgbtq\_explicit} $\leftrightarrow$ \texttt{heteronormative} H1 distinction to a single peak in each encoder family, but at \textbf{different depths} (Table~\ref{tab:peak_layers}, Figure~\ref{fig:layerwise}; \texttt{results/layerwise\_wasserstein.csv}, \texttt{results/layerwise\_wasserstein\_normalized.csv}).
+
+\begin{table}[t]
+\centering
+\caption{Per-family peak layer for the \texttt{lgbtq\_explicit} $\leftrightarrow$ \texttt{heteronormative} H1 Wasserstein distance, raw vs.\ L2-normalized \texttt{[CLS]}.}
+\label{tab:peak_layers}
+\begin{tabular}{lccccc}
+\toprule
+Model & Raw peak & Raw H1 & Norm.\ peak & Norm.\ H1 & Pearson $r$ \\
+\midrule
+\texttt{bert-base-uncased} & \textbf{L5}  & 18.9972 & L5  & 0.9926 & \textbf{0.9925} \\
+\texttt{roberta-base}      & \textbf{L12} & 0.6861  & L12 & 0.0578 & \textbf{0.9369} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Within each model, the raw and L2-normalized trajectories agree closely ($r = 0.9925$ for BERT, $r = 0.9369$ for RoBERTa), so each peak is a genuine geometric feature rather than an artifact of growing activation norm with depth. We do not compare absolute magnitudes across families --- different tokenizer, pretraining corpus, and objective make the numbers incommensurable --- but the trajectory shapes differ qualitatively: BERT crystallizes the orientation cluster mid-network (sharp peak at L5, then relaxation), while RoBERTa builds it monotonically toward the output (peak at L12).
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{fig2_layerwise.pdf}
+\caption{Per-layer H1 Wasserstein distance (\texttt{lgbtq\_explicit} vs.\ \texttt{heteronormative}) for BERT (left, peak L5) and RoBERTa (right, peak L12). Raw (blue, left axis) and L2-normalized (orange, right axis) curves agree on peak location (BERT $r = 0.993$, RoBERTa $r = 0.937$), confirming the peak is geometric structure not a norm-growth artifact.}
+\label{fig:layerwise}
+\end{figure}
+
+\subsection{Baseline controls: the orientation contrast is specific, not generic}\label{sec:baselines_results}
+
+To test whether the \texttt{lgbtq\_explicit} $\leftrightarrow$ \texttt{heteronormative} distance is special or merely generic lexical variation, we compare it against two control categories built from the same 20 templates: occupations and random adjectives. Controls are subsampled to 2 terms $\times$ 20 templates $=$ 40 sentences (matching the \texttt{heteronormative} group), and H1 Wasserstein distance is averaged over 20 random 2-term subsets (seed 42), so every contrast is a fair 80-vs.-40 comparison (Table~\ref{tab:baselines}; \texttt{results/baseline\_sizematched.csv}).
+
+\begin{table}[t]
+\centering
+\caption{Size-matched H1 Wasserstein distance from \texttt{lgbtq\_explicit} to three reference categories.}
+\label{tab:baselines}
+\begin{tabular}{lccc}
+\toprule
+Comparison (80 vs.\ 40) & Mean H1 Wasserstein & Std & $n_{\text{subsamples}}$ \\
+\midrule
+vs.\ \texttt{heteronormative}   & \textbf{3.527} & --- (fixed) & 1  \\
+vs.\ occupations                & \textbf{4.720} & 0.415       & 20 \\
+vs.\ random adjectives          & \textbf{4.457} & 0.381       & 20 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\texttt{heteronormative} lies \textbf{2.88 standard deviations below} the occupation mean and \textbf{2.44 standard deviations below} the adjective mean (Figure~\ref{fig:baselines}). Within MiniLM, the model represents LGBTQ+ and heteronormative terms as \textbf{nearest neighbors} on a coherent orientation axis --- not as topological outliers from generic lexical variation. The LGBTQ+ cloud is closer to its same-axis contrast than to either unrelated word category.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.65\textwidth]{fig3_baselines.pdf}
+\caption{Size-matched H1 Wasserstein distance from \texttt{lgbtq\_explicit} to three reference categories (all 80 vs.\ 40; control values are mean $\pm$ std over 20 random 2-term subsets). Heteronormative is the nearest semantic neighbor to \texttt{lgbtq\_explicit}, sitting $\sim$2.4 SD below the adjective mean --- consistent with a coherent sexual-orientation latent axis.}
+\label{fig:baselines}
+\end{figure}
+
+\subsection{Fine-tuning reorganizes geometry in opposite directions}\label{sec:finetuning_results}
+
+Probing each base / fine-tuned pair at its own peak layer (Table~\ref{tab:rlhf_comparison}; \texttt{results/rlhf\_comparison\_peak.csv}, all comparisons 80 vs.\ 40) shows that supervised downstream fine-tuning moves the \texttt{lgbtq\_explicit} $\leftrightarrow$ \texttt{heteronormative} H1 Wasserstein distance in \textbf{opposite directions} across families.
+
+\begin{table}[t]
+\centering
+\caption{Fine-tuning effect on the orientation cluster at each family's peak layer.}
+\label{tab:rlhf_comparison}
+\begin{tabular}{lccccr}
+\toprule
+Family  & Peak & Base H1 & Fine-tuned H1 (task) & $\Delta$ & $\Delta$\,\% \\
+\midrule
+BERT    & L5   & 18.9972 & \textbf{10.8960} (MNLI) & $-8.1012$ & \textbf{$-42.6\%$}  \\
+RoBERTa & L12  &  0.6861 & \textbf{ 1.8347} (CoLA) & $+1.1486$ & \textbf{$+167.4\%$} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The bootstrap-derived coefficient of variation for the H1 Wasserstein estimator (5.69\%; Section~\ref{sec:signal_robust}) places both deltas --- a 43\% compression and a 167\% amplification --- well outside sampling variability (Figure~\ref{fig:finetuning}). We report only within-family deltas: BERT-MNLI and RoBERTa-CoLA differ in fine-tuning task as well as in architecture, so the two cases jointly establish \textit{that} the effect is not directionally uniform, but cannot attribute either direction to architecture or task alone.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{fig4_finetuning.pdf}
+\caption{Fine-tuning's effect on H1 Wasserstein distance at each family's peak layer. BERT + MNLI compresses the orientation cluster ($\Delta = -42.6\%$, left panel); RoBERTa + CoLA amplifies it ($\Delta = +167.4\%$, right panel). Magnitudes are not cross-family comparable (different scales, distinct $y$-axes); only within-family $\Delta$ is interpreted.}
+\label{fig:finetuning}
+\end{figure}
+
+\subsection{Probe analysis disentangles geometric reorganization from information change}\label{sec:probes_results}
+
+Linear probes on the \texttt{[CLS]} vectors of the 120 \texttt{lgbtq\_explicit} $+$ \texttt{heteronormative} sentences (stratified 5-fold CV, seed 42; majority-class chance $= 0.667$ raw / $0.500$ balanced) clarify what each Wasserstein direction means representationally (\texttt{results/linear\_probe\_peak.csv}, \texttt{results/pca\_probe\_peak.csv}).
+
+\begin{table}[t]
+\centering
+\caption{Full-rank logistic-regression probe (\texttt{lgbtq\_explicit} vs.\ \texttt{heteronormative}) at each model's peak layer. Balanced accuracy reported with 5-fold standard deviation.}
+\label{tab:linear_probe}
+\begin{tabular}{lccc}
+\toprule
+Model & Layer & Balanced accuracy & Std \\
+\midrule
+\texttt{bert-base-uncased}             & L5  & \textbf{1.0000} & 0.0000 \\
+\texttt{textattack-bert-base-MNLI}     & L5  & \textbf{1.0000} & 0.0000 \\
+\texttt{roberta-base}                  & L12 & \textbf{0.5375} & 0.0342 \\
+\texttt{textattack-roberta-base-CoLA}  & L12 & \textbf{0.8250} & 0.0815 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For \textbf{BERT}, balanced accuracy is at ceiling on both sides of MNLI fine-tuning ($1.0000$ each, perfect across all five folds) --- the orientation information is fully linearly recoverable in either model. For \textbf{RoBERTa}, base balanced accuracy ($0.5375$) sits barely above chance ($0.500$), while CoLA-tuned balanced accuracy reaches $0.8250$ --- a \textbf{+28.75 percentage-point gain}, well outside the per-fold standard deviations ($0.034$ and $0.081$).
+
+\begin{table}[t]
+\centering
+\caption{PCA bottleneck --- minimum $k$ for which the same 5-fold probe reaches mean accuracy $\geq 0.90$, with accuracy and cumulative explained variance at $k = 50$ for context.}
+\label{tab:pca_bottleneck}
+\begin{tabular}{lccc}
+\toprule
+Model & Min $k$ for acc $\geq 0.90$ & Acc at $k = 50$ & Cum.\ var.\ at $k = 50$ \\
+\midrule
+\texttt{bert-base-uncased}             & \textbf{10}    & 1.000 & 0.991 \\
+\texttt{textattack-bert-base-MNLI}     & \textbf{50}    & 1.000 & 0.993 \\
+\texttt{roberta-base}                  & \textbf{$> 50$} & 0.692 & 0.991 \\
+\texttt{textattack-roberta-base-CoLA}  & \textbf{$> 50$} & 0.883 & 0.997 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For BERT, MNLI fine-tuning preserves information (both reach $1.000$ at $k = 50$) but \textbf{disperses it across the principal-component basis}: the minimum $k$ for $\geq 0.90$ mean accuracy expands from 10 to 50 --- a \textbf{$5\times$ increase} in the effective dimensionality of the orientation axis, despite nearly identical overall PCA variance profiles (cum-var at $k = 50$: $0.991$ vs.\ $0.993$; Figure~\ref{fig:pca_bottleneck}, left panel). For RoBERTa, neither model clears the $0.90$ threshold within $k \leq 50$ (base $0.692$, CoLA $0.883$), so the dimensionality comparison cannot be made at this resolution; the within-family gap nevertheless reproduces the full-rank pattern of Table~\ref{tab:linear_probe} (Figure~\ref{fig:pca_bottleneck}, right panel).
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{fig5_pca_probe.pdf}
+\caption{PCA bottleneck probe accuracy vs.\ number of principal components retained, at each family's peak layer. BERT + MNLI's $5\times$ increase in min-$k$-for-$0.90$ ($10 \rightarrow 50$) quantifies the orientation-axis dispersion described in Section~\ref{sec:probes_results} (left panel). The RoBERTa panel is reported as a resolution limit --- neither base nor CoLA reaches $0.90$ within $k \leq 50$ --- but the within-family ordering (CoLA $>$ base across $k$) reproduces the full-rank probe pattern of Table~\ref{tab:linear_probe} (right panel).}
+\label{fig:pca_bottleneck}
+\end{figure}
+
+Synthesizing across the two probes: \textbf{BERT + MNLI is geometric reorganization with information preserved} --- the $-43\%$ Wasserstein compression coincides with zero change in linear recoverability and a $\sim 5\times$ expansion of the dimensionality required to recover it. \textbf{RoBERTa + CoLA is genuine information gain} --- the $+167\%$ Wasserstein amplification coincides with a $+28.75$~pp gain in linear recoverability at the peak layer, indicating that fine-tuning on a non-identity grammatical-acceptability task injected linearly recoverable orientation structure into a layer that previously carried almost none.
+
+% ======================================================================
+\section{Discussion}\label{sec:discussion}
+
+\subsection{Synthesis: a representational-level account of fine-tuning's effect on identity-coded geometry}\label{sec:synthesis}
+
+The central finding from Section~\ref{sec:results} is that supervised downstream fine-tuning reshapes identity-coded representational geometry, but the \textbf{direction} of that reshaping is not architecture- or task-agnostic. Under BERT + MNLI, the \texttt{lgbtq\_explicit} $\leftrightarrow$ \texttt{heteronormative} H1 Wasserstein distance compresses by 43\% at the family's peak layer while the orientation distinction remains 100\% linearly recoverable from the \texttt{[CLS]} vector --- geometric reorganization without information loss (Tables~\ref{tab:rlhf_comparison},~\ref{tab:linear_probe}; PCA-bottleneck mechanism in Table~\ref{tab:pca_bottleneck}). Under RoBERTa + CoLA, the same distance amplifies by 167\% at L12, and linear-probe balanced accuracy rises from $0.54$ (near chance) to $0.83$ --- fine-tuning on a non-identity objective injects linearly recoverable orientation structure the base model did not carry (Tables~\ref{tab:rlhf_comparison},~\ref{tab:linear_probe}).
+
+This sits naturally against the related-work backdrop. \citet{steed-etal-2022-upstream} showed that reducing intrinsic bias upstream does little to curb discriminatory downstream behavior; \citet{goldfarb-tarrant-etal-2021-intrinsic} showed that intrinsic and extrinsic bias metrics decouple across tasks and languages; \citet{meade-etal-2022-empirical} found existing debiasing techniques inconsistent. What that literature jointly establishes is that mitigation does not transfer reliably through fine-tuning --- but it does not provide a representational account of why. TopoBERT \citep{rathore2023topobert} showed fine-tuning reorganizes embedding topology in general, without identity focus or significance testing; \citet{varadarajan2025augmenting} showed persistent homology can localize identity bias in an LLM, at the attention-head level, without examining fine-tuning. Our results are \textbf{consistent with} that body of work and offer a representational mechanism that fits the inconsistency it reports: when the underlying geometry is being reorganized in opposite directions by different (architecture, task) pairs, behavioral measures that aggregate over those pairs will naturally produce inconsistent or non-transferring effects. We do not claim to \textit{explain} prior empirical results --- that would require behavioral evaluation of the specific models those studies tested --- but the mechanism we observe is the kind of thing that produces the patterns they report.
+
+\subsection{Two regimes of fine-tuning effect on identity-coded geometry}\label{sec:regimes}
+
+Our two (architecture, task) pairs occupy qualitatively distinct regimes.
+
+\textbf{Regime A --- information-preserving geometric reorganization (BERT + MNLI).} Wasserstein compresses by 43\% (Table~\ref{tab:rlhf_comparison}); the full-rank linear probe is unchanged at $1.000$ balanced accuracy on both sides (Table~\ref{tab:linear_probe}); the PCA bottleneck (Table~\ref{tab:pca_bottleneck}) shows the mechanism --- the orientation signal moves from being recoverable in the top 10 principal components in the base model to requiring the top 50 in the fine-tuned model, a $5\times$ expansion of effective dimensionality despite nearly identical overall PCA variance profiles. Surface evaluations relying on dominant directions or pairwise summaries \citep{bolukbasi2016man, caliskan2017semantics, may-etal-2019-measuring} are dominated by the leading variance directions; a signal pushed off those directions and into the variance tail will register as ``less bias'' by those methods while remaining fully linearly recoverable.
+
+\textbf{Regime B --- information injection (RoBERTa + CoLA).} Wasserstein amplifies by 167\% (Table~\ref{tab:rlhf_comparison}); balanced probe accuracy rises by $+28.75$~pp at the peak layer (Table~\ref{tab:linear_probe}). Critically, the CoLA fine-tuning objective is grammatical acceptability --- binary judgments of well-formedness with no identity-related supervision --- yet the fine-tuned model encodes the orientation distinction with substantially more linear separability than the base. The mechanism is not resolvable from our experiments. Two non-exclusive candidates are: (i) CoLA's fine-grained linguistic-acceptability supervision amplifies latent group-coded variation already present in the base by sharpening fine-grained linguistic distinctions broadly; or (ii) CoLA induces a representational reshuffling at upper layers (consistent with the RoBERTa peak at L12) that coincidentally aligns previously-diffuse identity-coded variance with newly-prominent task-driven axes. Distinguishing these requires ablation or training-trajectory analysis we have not performed.
+
+The shared lesson is that fine-tuning is not a reliable debiasing operation at the representational level. It can \textbf{hide} identity-coded structure from surface audits (Regime A) or \textbf{create} it as a side effect of unrelated objectives (Regime B). The two regimes are equally consequential for auditing, even though only one looks like ``more bias'' on the Wasserstein metric.
+
+\subsection{Implications for bias auditing practice}\label{sec:implications}
+
+Three implications follow, stated as scoping requirements rather than prescriptions.
+
+\begin{enumerate}
+\item \textbf{Surface bias audits and multi-scale geometric probes are complementary, not substitutes.} Regime A demonstrates that a directional or pairwise audit can correctly report ``the bias signal has shrunk'' while a linear classifier with access to the full vector still recovers the distinction perfectly (Table~\ref{tab:linear_probe}; PCA-bottleneck dispersion in Table~\ref{tab:pca_bottleneck}). Methods sensitive to global, multi-scale geometry --- persistent homology, Wasserstein distance over diagrams, or other shape-aware tools --- capture structure that directional probes \citep{bolukbasi2016man, caliskan2017semantics, may-etal-2019-measuring} cannot. The two families of probe answer different questions about the same representation.
+
+\item \textbf{Claims about ``fine-tuning effects on bias'' cannot be stated model-agnostically.} Our two (architecture, task) pairs produce opposite-direction effects on the same quantity (Table~\ref{tab:rlhf_comparison}), so any such claim must be scoped to the specific (architecture, task) pair on which it was measured. This is a generalization of the \citet{goldfarb-tarrant-etal-2021-intrinsic} decoupling result from intrinsic-vs.-extrinsic to base-vs.-fine-tuned within the intrinsic-geometry layer.
+
+\item \textbf{Non-identity fine-tuning objectives can introduce identity-coded structure unintentionally.} Regime B shows that a fine-tuning task with no identity supervision can still inject linearly recoverable orientation information into a layer that previously carried almost none. This argues for auditing checkpoints throughout the fine-tuning trajectory, not only base and final models --- structure may emerge mid-training as the model adapts to a task whose surface goal is unrelated to identity.
+\end{enumerate}
+
+These implications connect back to the bias-transfer hypothesis of \citet{steed-etal-2022-upstream}. We do not contradict it; we provide a representational substrate by which it can manifest in \textbf{opposite directions} across architectures, consistent with the inconsistency the broader debiasing literature reports.
+
+\subsection{What we have not shown}\label{sec:not_shown}
+
+Three scoping points before the formal Limitations section.
+
+\textbf{We do not demonstrate behavioral harm.} Every result in Section~\ref{sec:results} measures \textit{representational} structure --- Wasserstein distance between persistence diagrams, linear-probe accuracy on \texttt{[CLS]} vectors, dimensionality of the orientation axis under PCA. We do not show that models exhibiting Regime A or Regime B patterns produce more toxic, stereotyped, or refusal-prone outputs, nor that downstream task performance (retrieval, ranking, classification) is systematically disparate under identity-coded prompts. Connecting representational reorganization to behavioral outcomes is the natural next step and requires different methodology --- counterfactual generation, downstream task evaluation with identity-coded inputs, and human rating --- that we have not undertaken.
+
+\textbf{We do not disentangle architecture from fine-tuning task.} BERT is paired with MNLI in our experiments; RoBERTa is paired with CoLA. The two cross-family cases differ in both dimensions simultaneously, so we cannot attribute the Regime A vs.\ Regime B contrast to architecture, to fine-tuning task, or to their interaction. The decisive follow-up is to cross the design --- \texttt{bert-base} + CoLA and \texttt{roberta-base} + MNLI (and similar paired comparisons) --- and observe whether direction tracks the architecture or the task. We flag this as the most important immediate next experiment.
+
+\textbf{Our results are encoder-only.} We probe two BERT-family encoder architectures and their supervised downstream fine-tunes. Decoder-only language models, instruction-tuned models, and true preference-optimized models (DPO, PPO, RLHF) may behave differently. RLHF, in particular, differs from supervised fine-tuning in objective (preference modeling, not classification), training dynamics, and typical scale, so ``RLHF disperses bias'' cannot be inferred from MNLI / CoLA fine-tuning. Our results scope cleanly to supervised downstream fine-tuning of encoder models; extending them is future work.
+
+We address each of these and adjacent scoping concerns in detail in Section~\ref{sec:limitations}.
+
+% ======================================================================
+\section{Limitations \& Future Work}\label{sec:limitations}
+
+We expand the scoping points raised in Section~\ref{sec:not_shown} and add two further limitations of methodological scope. Each is paired with its concrete follow-up direction.
+
+\begin{enumerate}
+\item \textbf{Architecture / task entanglement.} Our cross-family comparison pairs BERT with MNLI and RoBERTa with CoLA, conflating the architectural factor with the fine-tuning task factor. The opposite-direction Wasserstein effects we observe (Table~\ref{tab:rlhf_comparison}) could in principle reflect either, and our experiments cannot separate them. \textit{Future work:} cross-tuning experiments --- \texttt{bert-base-uncased} + CoLA and \texttt{roberta-base} + MNLI --- would disentangle these factors, but require running fine-tuning rather than downloading existing checkpoints.
+
+\item \textbf{Scope of fine-tuning regimes.} We use supervised downstream fine-tuning on established benchmarks (MNLI, CoLA, via the \texttt{textattack} model release) as a tractable proxy for ``what happens after fine-tuning.'' This proxy does not cover reinforcement learning from human feedback (RLHF), direct preference optimization (DPO), instruction-tuning, or other alignment-style training regimes whose objectives and dynamics differ substantially from supervised classification. \textit{Future work:} applying the probe to checkpoint pairs from genuine preference-optimized or instruction-tuned models would test whether the two regimes we identify generalize beyond supervised fine-tuning.
+
+\item \textbf{Encoder-only scope.} Our results are restricted to encoder architectures (\texttt{bert-base-uncased}, \texttt{roberta-base}, \texttt{all-MiniLM-L6-v2}). Decoder-only models (GPT, Llama, Mistral families) compute representations under causal-attention masking and different training objectives, and dual-encoder retrieval models pool representations differently; either family may exhibit different layer-localization or fine-tuning effects than we report here. \textit{Future work:} extending the probe across architecture families would establish whether the two-regime characterization is encoder-specific or representational-bias-general.
+
+\item \textbf{Template-based stimuli.} Our identity-paired sentences are synthetic minimal pairs constructed from 20 templates across three context domains (Section~\ref{sec:stimuli}). Naturalistic text contains pragmatic context, discourse structure, and intersectional identity variation that template stimuli cannot capture, and effects measured under template control may be amplified or attenuated under naturalistic distribution. \textit{Future work:} deploying the probe on curated naturalistic stimulus sets, and on intersectional identity combinations (e.g., race $\times$ orientation, gender $\times$ disability), would test the probe's external validity.
+
+\item \textbf{Representational asymmetry $\neq$ behavioral harm.} Every result in this paper measures \textit{representational} structure --- Wasserstein distance between persistence diagrams, linear-probe accuracy on \texttt{[CLS]} vectors, dimensionality of the orientation axis under PCA. We have not shown that the Regime A or Regime B patterns produce measurable behavioral disparities in downstream tasks (retrieval, ranking, classification, generation). \textit{Future work:} linking the geometric patterns documented here to behavioral outcomes --- via counterfactual evaluation, downstream task disparity analysis, and human rating --- is the prerequisite for any claim about deployed model behavior that draws on this kind of representational evidence.
+\end{enumerate}
+
+% ======================================================================
+\section{Conclusion}\label{sec:conclusion}
+
+Across two encoder families, supervised downstream fine-tuning reshapes the topological structure of identity-coded subgroup embeddings in opposite directions at each family's peak layer, and within-family linear probes show the two effects to be qualitatively distinct --- geometric reorganization with information preserved in one regime, information injection in the other. We introduce persistent homology with Wasserstein permutation testing on identity-paired subgroup embedding clouds as a representational-level probe that captures global, multi-scale structure that directional and pairwise audits cannot see. The broader takeaway for bias-auditing practice is that supervised downstream fine-tuning is not a reliable representational debiasing operation; any claim about its effect must be scoped to the specific (architecture, task) pair on which it was measured. The research program this opens --- disentangling architecture from task across encoder and decoder families, and linking these geometric patterns to behavioral outcomes --- is the natural next set of experiments.
+
+% ======================================================================
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

@@ -1,0 +1,3 @@
+model,hub_id,layer,n_samples,n_features,n_folds,mean_accuracy,std_accuracy,mean_balanced_accuracy,std_balanced_accuracy,chance_majority
+bert-base-uncased,bert-base-uncased,5,120,768,5,1.0,0.0,1.0,0.0,0.6666666666666666
+textattack-bert-base-MNLI,textattack/bert-base-uncased-MNLI,5,120,768,5,1.0,0.0,1.0,0.0,0.6666666666666666

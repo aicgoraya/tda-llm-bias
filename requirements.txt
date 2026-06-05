@@ -1,0 +1,8 @@
+sentence-transformers
+ripser
+gudhi
+persim
+umap-learn
+matplotlib
+pandas
+jupyter
