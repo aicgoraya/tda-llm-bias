@@ -1,5 +1,7 @@
 # Downstream Fine-Tuning Reorganizes Identity-Coded Geometry in Transformer Embeddings: A Cross-Architecture Topological Probe
 
+**What this is.** A topological probe of how transformer embedding spaces (BERT, RoBERTa, MiniLM) represent identity-coded language — and how downstream fine-tuning reshapes that geometry. Instead of cosine similarity, it uses persistent homology to compare embedding clouds for otherwise-identical sentences that differ only in an identity term (e.g. "a gay person" vs. "a person"). The headline result: fine-tuning is not a reliable debiasing step — it can hide identity-coded structure from surface bias audits in one architecture (BERT + MNLI) while *introducing* it in another (RoBERTa + CoLA), even under a task with no identity supervision.
+
 ## Key Findings
 
 - **LGBTQ+ embeddings are topologically distinct.** The `lgbtq_explicit` group's
